@@ -1,1 +1,415 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VPN Keys</title>
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css">
+<script>
+tailwind.config = {
+theme: {
+extend: {
+colors: {
+primary: '#4f46e5',
+secondary: '#6366f1'
+},
+borderRadius: {
+'none': '0px',
+'sm': '4px',
+DEFAULT: '8px',
+'md': '12px',
+'lg': '16px',
+'xl': '20px',
+'2xl': '24px',
+'3xl': '32px',
+'full': '9999px',
+'button': '8px'
+}
+}
+}
+}
+</script>
+<style>
+:where([class^="ri-"])::before { content: "\f3c2"; }
+.vpn-key {
+font-family: 'Roboto Mono', monospace;
+}
+.copy-toast {
+position: fixed;
+bottom: 20px;
+right: 20px;
+transform: translateY(100px);
+transition: transform 0.3s ease;
+}
+.copy-toast.show {
+transform: translateY(0);
+}
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+display: none;
+}
+input[type="search"] {
+-webkit-appearance: none;
+}
+</style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<header class="flex justify-between items-center mb-8">
+<h1 class="text-2xl font-bold text-gray-900">VPN Keys</h1>
+<div class="flex items-center space-x-4">
+<div class="relative">
+<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+<div class="w-5 h-5 flex items-center justify-center text-gray-400">
+<i class="ri-search-line"></i>
+</div>
+</div>
+<input type="search" id="searchKeys" class="bg-white border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full pl-10 p-2.5" placeholder="Search keys...">
+</div>
+<button id="publishKeyBtn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2.5 text-sm font-medium !rounded-button flex items-center whitespace-nowrap">
+<div class="w-4 h-4 flex items-center justify-center mr-2">
+<i class="ri-add-line"></i>
+</div>
+Publish Key
+</button>
+</div>
+</header>
+<div class="space-y-4" id="vpnKeysList">
+<!-- VPN Key Cards will be dynamically generated -->
+</div>
+</div>
+<!-- Publish Key Modal -->
+<div id="publishKeyModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+<div class="bg-white rounded-lg max-w-md w-full p-6">
+<div class="flex justify-between items-center mb-4">
+<h3 class="text-xl font-semibold text-gray-900">Publish New VPN Key</h3>
+<button id="closeModalBtn" class="text-gray-500 hover:text-gray-700">
+<div class="w-6 h-6 flex items-center justify-center">
+<i class="ri-close-line"></i>
+</div>
+</button>
+</div>
+<form id="publishKeyForm">
+<div class="mb-4">
+<label for="keyContent" class="block mb-2 text-sm font-medium text-gray-900">VPN Key</label>
+<textarea id="keyContent" rows="4" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 font-mono" placeholder="Paste your VPN key here..." required></textarea>
+</div>
+<div class="mb-4">
+<label class="block mb-2 text-sm font-medium text-gray-900">Status</label>
+<div class="flex space-x-4">
+<label class="inline-flex items-center">
+<div class="relative inline-block w-4 h-4 mr-2">
+<input type="radio" name="status" value="active" class="opacity-0 absolute w-full h-full cursor-pointer z-10" checked>
+<span class="w-4 h-4 border border-gray-300 rounded-full flex items-center justify-center">
+<span class="w-2 h-2 bg-primary rounded-full hidden checked-visible"></span>
+</span>
+</div>
+<span class="text-sm text-gray-700">Active</span>
+</label>
+<label class="inline-flex items-center">
+<div class="relative inline-block w-4 h-4 mr-2">
+<input type="radio" name="status" value="expired" class="opacity-0 absolute w-full h-full cursor-pointer z-10">
+<span class="w-4 h-4 border border-gray-300 rounded-full flex items-center justify-center">
+<span class="w-2 h-2 bg-primary rounded-full hidden checked-visible"></span>
+</span>
+</div>
+<span class="text-sm text-gray-700">Expired</span>
+</label>
+</div>
+</div>
+<button type="submit" class="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2.5 px-4 !rounded-button whitespace-nowrap">Publish Key</button>
+</form>
+</div>
+</div>
+<!-- Copy Success Toast -->
+<div id="copyToast" class="copy-toast bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg flex items-center">
+<div class="w-5 h-5 flex items-center justify-center mr-2 text-green-400">
+<i class="ri-check-line"></i>
+</div>
+<span>VPN key copied to clipboard!</span>
+</div>
+<script id="vpnKeysData">
+document.addEventListener('DOMContentLoaded', function() {
+// Sample VPN keys data
+const vpnKeys = [
+{
+id: 1,
+key: "client\ndev tun\nproto udp\nremote vpn.example.com 1194\nresolv-retry infinite\nnobind\npersist-key\npersist-tun\nca ca.crt\ncert client.crt\nkey client.key\nremote-cert-tls server\ncipher AES-256-CBC\nverb 3",
+admin: "Jennifer Wilson",
+timestamp: "2025-06-21T10:30:00",
+views: 128,
+status: "active"
+},
+{
+id: 2,
+key: "client\ndev tun\nproto tcp\nremote secure.vpnprovider.net 443\nresolv-retry infinite\nnobind\npersist-key\npersist-tun\nca ca.crt\ncert client.crt\nkey client.key\ntls-auth ta.key 1\ncipher AES-256-GCM\nauth SHA256\ncomp-lzo\nverb 3",
+admin: "Michael Rodriguez",
+timestamp: "2025-06-20T15:45:00",
+views: 87,
+status: "active"
+},
+{
+id: 3,
+key: "client\ndev tun\nproto udp\nremote vpn-eu.company.org 1194\nresolv-retry infinite\nnobind\npersist-key\npersist-tun\nca ca.crt\ncert client.crt\nkey client.key\nremote-cert-tls server\ncipher AES-128-CBC\nauth SHA1\nverb 3",
+admin: "Sarah Johnson",
+timestamp: "2025-06-18T09:15:00",
+views: 215,
+status: "expired"
+},
+{
+id: 4,
+key: "client\ndev tun\nproto udp\nremote vpn-us-west.example.net 1194\nresolv-retry infinite\nnobind\npersist-key\npersist-tun\nca ca.crt\ncert client.crt\nkey client.key\nremote-cert-tls server\ncipher AES-256-GCM\nauth SHA256\nverb 3",
+admin: "David Thompson",
+timestamp: "2025-06-15T14:20:00",
+views: 156,
+status: "active"
+},
+{
+id: 5,
+key: "client\ndev tun\nproto tcp\nremote vpn.secureconnect.com 443\nhttp-proxy proxy.example.com 8080\nresolv-retry infinite\nnobind\npersist-key\npersist-tun\nca ca.crt\ncert client.crt\nkey client.key\nremote-cert-tls server\ncipher AES-256-CBC\nauth SHA256\ncomp-lzo\nverb 3",
+admin: "Emily Chen",
+timestamp: "2025-06-10T11:30:00",
+views: 342,
+status: "expired"
+}
+];
+renderVpnKeys(vpnKeys);
+// Search functionality
+const searchInput = document.getElementById('searchKeys');
+searchInput.addEventListener('input', function() {
+const searchTerm = this.value.toLowerCase();
+const filteredKeys = vpnKeys.filter(key =>
+key.key.toLowerCase().includes(searchTerm) ||
+key.admin.toLowerCase().includes(searchTerm)
+);
+renderVpnKeys(filteredKeys);
+});
+});
+function renderVpnKeys(keys) {
+const keysList = document.getElementById('vpnKeysList');
+keysList.innerHTML = '';
+if (keys.length === 0) {
+keysList.innerHTML = `
+<div class="text-center py-12">
+<div class="w-16 h-16 mx-auto flex items-center justify-center text-gray-400 mb-4">
+<i class="ri-search-line ri-3x"></i>
+</div>
+<h3 class="text-lg font-medium text-gray-900">No VPN keys found</h3>
+<p class="mt-2 text-sm text-gray-500">Try adjusting your search or filters</p>
+</div>
+`;
+return;
+}
+keys.forEach(keyData => {
+const keyElement = document.createElement('div');
+keyElement.className = 'bg-white rounded-lg shadow-sm border border-gray-100 p-5 transition-all hover:shadow-md';
+const statusClass = keyData.status === 'active'
+? 'bg-green-100 text-green-800'
+: 'bg-red-100 text-red-800';
+const formattedDate = new Date(keyData.timestamp).toLocaleString('en-US', {
+year: 'numeric',
+month: 'short',
+day: 'numeric',
+hour: '2-digit',
+minute: '2-digit'
+});
+keyElement.innerHTML = `
+<div class="flex flex-col space-y-3">
+<div class="flex justify-between items-start">
+<div class="flex items-center space-x-2">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<i class="ri-shield-keyhole-line"></i>
+</div>
+<div>
+<span class="text-sm font-medium text-gray-900">Published by ${keyData.admin}</span>
+<div class="flex items-center space-x-2 mt-0.5">
+<span class="text-xs text-gray-500">${formattedDate}</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusClass}">
+${keyData.status.charAt(0).toUpperCase() + keyData.status.slice(1)}
+</span>
+</div>
+</div>
+</div>
+<div class="flex items-center space-x-2 text-sm text-gray-500">
+<div class="flex items-center">
+<div class="w-4 h-4 flex items-center justify-center mr-1">
+<i class="ri-eye-line"></i>
+</div>
+<span>${keyData.views}</span>
+</div>
+</div>
+</div>
+<div class="relative">
+<pre class="vpn-key bg-gray-50 p-4 rounded-lg text-sm text-gray-800 overflow-x-auto">${keyData.key}</pre>
+<div class="absolute top-3 right-3 flex space-x-2">
+<button class="delete-btn bg-white hover:bg-gray-100 text-red-600 p-1.5 rounded-lg shadow-sm border border-gray-200" data-key-id="${keyData.id}">
+<div class="w-5 h-5 flex items-center justify-center">
+<i class="ri-delete-bin-line"></i>
+</div>
+</button>
+<button class="copy-btn bg-white hover:bg-gray-100 text-gray-700 p-1.5 rounded-lg shadow-sm border border-gray-200" data-key="${keyData.key}">
+<div class="w-5 h-5 flex items-center justify-center">
+<i class="ri-file-copy-line"></i>
+</div>
+</button>
+</div>
+</div>
+</div>
+`;
+keysList.appendChild(keyElement);
+});
+// Add event listeners to copy and delete buttons
+document.querySelectorAll('.copy-btn').forEach(button => {
+button.addEventListener('click', function() {
+const keyText = this.getAttribute('data-key');
+copyToClipboard(keyText);
+showCopyToast();
+// Update view count animation
+const viewCountEl = this.closest('.bg-white').querySelector('.ri-eye-line').nextElementSibling;
+const currentViews = parseInt(viewCountEl.textContent);
+viewCountEl.textContent = currentViews + 1;
+// Add a brief highlight effect
+viewCountEl.classList.add('text-primary', 'font-medium');
+setTimeout(() => {
+viewCountEl.classList.remove('text-primary', 'font-medium');
+}, 1500);
+});
+});
+}
+function copyToClipboard(text) {
+navigator.clipboard.writeText(text)
+.catch(err => {
+console.error('Could not copy text: ', err);
+});
+}
+function showCopyToast() {
+const toast = document.getElementById('copyToast');
+toast.classList.add('show');
+setTimeout(() => {
+toast.classList.remove('show');
+}, 3000);
+}
+// Add event listeners to delete buttons
+document.querySelectorAll('.delete-btn').forEach(button => {
+button.addEventListener('click', function() {
+const keyId = this.getAttribute('data-key-id');
+const keyElement = this.closest('.bg-white');
+// Show confirmation dialog
+const confirmDelete = document.createElement('div');
+confirmDelete.className = 'absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center rounded-lg z-10';
+confirmDelete.innerHTML = `
+<div class="text-center p-4">
+<p class="text-gray-900 font-medium mb-4">Are you sure you want to delete this VPN key?</p>
+<div class="flex justify-center space-x-3">
+<button class="confirm-delete bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-button text-sm font-medium">Delete</button>
+<button class="cancel-delete bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-button text-sm font-medium">Cancel</button>
+</div>
+</div>
+`;
+keyElement.style.position = 'relative';
+keyElement.appendChild(confirmDelete);
+// Handle confirmation
+confirmDelete.querySelector('.confirm-delete').addEventListener('click', function() {
+keyElement.style.opacity = '0';
+keyElement.style.transform = 'translateX(20px)';
+keyElement.style.transition = 'all 0.3s ease';
+setTimeout(() => {
+keyElement.remove();
+// Show delete success toast
+const toast = document.getElementById('copyToast');
+toast.querySelector('span').textContent = 'VPN key deleted successfully!';
+toast.querySelector('i').className = 'ri-delete-bin-line';
+toast.classList.add('show');
+setTimeout(() => {
+toast.classList.remove('show');
+toast.querySelector('span').textContent = 'VPN key copied to clipboard!';
+toast.querySelector('i').className = 'ri-check-line';
+}, 3000);
+}, 300);
+});
+// Handle cancellation
+confirmDelete.querySelector('.cancel-delete').addEventListener('click', function() {
+confirmDelete.remove();
+});
+});
+});
+</script>
+<script id="modalHandling">
+document.addEventListener('DOMContentLoaded', function() {
+const publishBtn = document.getElementById('publishKeyBtn');
+const modal = document.getElementById('publishKeyModal');
+const closeBtn = document.getElementById('closeModalBtn');
+const publishForm = document.getElementById('publishKeyForm');
+publishBtn.addEventListener('click', function() {
+modal.classList.remove('hidden');
+});
+closeBtn.addEventListener('click', function() {
+modal.classList.add('hidden');
+});
+// Close modal when clicking outside
+modal.addEventListener('click', function(e) {
+if (e.target === modal) {
+modal.classList.add('hidden');
+}
+});
+// Handle form submission
+publishForm.addEventListener('submit', function(e) {
+e.preventDefault();
+const keyContent = document.getElementById('keyContent').value;
+const status = document.querySelector('input[name="status"]:checked').value;
+if (keyContent.trim() === '') {
+return;
+}
+// In a real app, you would send this data to the server
+// For demo purposes, we'll just close the modal
+modal.classList.add('hidden');
+// Reset form
+publishForm.reset();
+// Show success message
+const toast = document.getElementById('copyToast');
+toast.querySelector('span').textContent = 'VPN key published successfully!';
+toast.querySelector('i').className = 'ri-check-double-line';
+toast.classList.add('show');
+setTimeout(() => {
+toast.classList.remove('show');
+toast.querySelector('span').textContent = 'VPN key copied to clipboard!';
+toast.querySelector('i').className = 'ri-check-line';
+}, 3000);
+});
+});
+</script>
+<script id="radioButtonsHandler">
+document.addEventListener('DOMContentLoaded', function() {
+// Handle custom radio buttons
+const radioButtons = document.querySelectorAll('input[type="radio"]');
+radioButtons.forEach(radio => {
+radio.addEventListener('change', function() {
+// Hide all checked indicators
+document.querySelectorAll('.checked-visible').forEach(el => {
+el.classList.add('hidden');
+});
+// Show the checked indicator for the selected radio
+if (this.checked) {
+const indicator = this.nextElementSibling.querySelector('span');
+indicator.classList.remove('hidden');
+indicator.classList.add('checked-visible');
+}
+});
+// Initialize state
+if (radio.checked) {
+const indicator = radio.nextElementSibling.querySelector('span');
+indicator.classList.remove('hidden');
+indicator.classList.add('checked-visible');
+}
+});
+});
+</script>
+</body>
+</html>
